@@ -30,7 +30,7 @@ install:
 build_script:
   - ps: flutter build windows --release
 
-  # Choix dev / prod selon message de commit
+  # @Choix dev / prod selon message de commit
   - ps: |
       if ($env:APPVEYOR_REPO_COMMIT_MESSAGE -like "*[prod]*") {
         Copy-Item installer/windows_installer_prod.iss installer/windows_installer.iss -Force
