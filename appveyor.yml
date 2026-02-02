@@ -1,11 +1,15 @@
+# Version du build
 version: 1.0.{build}
 
+# Image Windows avec Visual Studio
 image: Visual Studio 2022
 
+# Variables d'environnement
 environment:
   FLUTTER_CHANNEL: stable
   FLUTTER_ROOT: C:\tools\flutter
 
+# Étape d'installation
 install:
   # Installer Flutter si pas déjà
   - ps: |
@@ -14,34 +18,45 @@ install:
         Invoke-WebRequest https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.13.10-stable.zip -OutFile flutter.zip
         Expand-Archive flutter.zip -DestinationPath C:\tools
       }
-  - ps: $env:Path += ";$env:FLUTTER_ROOT\bin"
+      # Ajouter Flutter au PATH
+      $env:Path = "$env:FLUTTER_ROOT\bin;$env:Path"
+      flutter --version
+      flutter doctor -v
 
   # Installer dépendances Flutter
-  - flutter doctor
-  - flutter pub get
+  - ps: flutter pub get
 
-  # Installer Inno Setup
+  # Installer Inno Setup si pas déjà
   - ps: |
       if (-Not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
         Invoke-WebRequest https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe -OutFile innosetup.exe
         Start-Process innosetup.exe -ArgumentList "/SILENT","/NOCANCEL","/SUPPRESSMSGBOXES","/NORESTART" -Wait
       }
 
+# Étape de build
 build_script:
+  # Vérifier Flutter et Path
+  - ps: flutter doctor -v
+  - ps: echo "PATH=$env:Path"
+
+  # Build Windows release
   - ps: flutter build windows --release
 
-  # r@Choix dev / prod selon message de commit
+  # Choix dev / prod selon message commit
   - ps: |
       if ($env:APPVEYOR_REPO_COMMIT_MESSAGE -like "*[prod]*") {
+        Write-Host "Using PROD config"
         Copy-Item installer/windows_installer_prod.iss installer/windows_installer.iss -Force
         Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "installer/vc_redist.x64.exe"
       } else {
+        Write-Host "Using DEV config"
         Copy-Item installer/windows_installer_dev.iss installer/windows_installer.iss -Force
       }
 
   # Créer l'installer
   - ps: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer/windows_installer.iss'
 
+# Upload des artifacts
 artifacts:
   - path: installer\Output\*.exe
-    name: ShopManager
+    name: ShopManagerInstaller
